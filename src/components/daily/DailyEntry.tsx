@@ -432,16 +432,15 @@ export function DailyEntry() {
         // Load existing entry data (but don't auto-show reading plan)
         // Use data_content.readingPlan which comes from the backend's reading_plans table
         const readingPlanData = entryData.data_content?.readingPlan
-        setDayData(prev => ({
-          ...prev,
-          checkIn: entryData.checkIn || prev.checkIn,
-          gratitude: entryData.gratitude || prev.gratitude,
-          soap: entryData.soap || prev.soap,
-          dailyIntention: entryData.dailyIntention || prev.dailyIntention,
-          leadershipRating: entryData.leadershipRating || prev.leadershipRating,
+        setDayData({
+          checkIn: entryData.checkIn || { emotions: [], feeling: '' },
+          gratitude: entryData.gratitude || ['', '', ''],
+          soap: entryData.soap || { scripture: '', observation: '', application: '', prayer: '' },
+          dailyIntention: entryData.dailyIntention || '',
+          leadershipRating: entryData.leadershipRating || { wisdom: 5, courage: 5, patience: 5, integrity: 5 },
           // Store reading plan data but don't show UI until user clicks "Choose Plan"
           readingPlan: readingPlanData
-        }))
+        })
         
         // Start with goals from current entry
         const currentGoals = entryData.goals || { daily: [], weekly: [], monthly: [] }
