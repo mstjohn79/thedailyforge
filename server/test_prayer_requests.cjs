@@ -22,7 +22,7 @@ async function testPrayerRequests() {
     console.log('1️⃣ Getting demo user...');
     const userResult = await client.query(
       'SELECT * FROM users WHERE email = $1',
-      ['demo@dailydavid.com']
+      ['demo@thedailyforge.com']
     );
     
     if (userResult.rows.length === 0) {

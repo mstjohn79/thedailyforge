@@ -14,7 +14,7 @@ async function checkUser() {
     // Get user ID first
     const userResult = await client.query(
       'SELECT id, email, display_name FROM users WHERE email = $1',
-      ['marty@dailydavid.com']
+      ['marty@thedailyforge.com']
     )
     
     if (userResult.rows.length > 0) {

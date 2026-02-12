@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react'
+import { Mail, Lock, LogIn, Eye, EyeOff, Flame } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { LoginFormData } from '../../types'
 import { Button } from '../ui'
@@ -114,8 +114,8 @@ export function LoginForm({ onSuccess, onError }: LoginFormProps) {
             transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
             className="inline-block"
           >
-            <div className="w-16 h-16 bg-gradient-to-br from-amber-600 to-amber-700 rounded-full flex items-center justify-center mb-4 mx-auto">
-              <span className="text-white text-2xl font-bold">DD</span>
+            <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-green-700 rounded-full flex items-center justify-center mb-4 mx-auto">
+              <Mountain className="w-8 h-8 text-white" />
             </div>
           </motion.div>
           <h1 className="text-2xl font-bold text-white mb-2">

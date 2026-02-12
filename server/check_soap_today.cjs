@@ -13,16 +13,16 @@ async function checkSOAPToday() {
     
     // Get today's date in YYYY-MM-DD format
     const today = new Date().toISOString().split('T')[0]
-    console.log('🔍 Checking SOAP data for marty@dailydavid.com on:', today)
+    console.log('🔍 Checking SOAP data for marty@thedailyforge.com on:', today)
     
     // Get user ID first
     const userResult = await client.query(
       'SELECT id, email, display_name FROM users WHERE email = $1',
-      ['marty@dailydavid.com']
+      ['marty@thedailyforge.com']
     )
     
     if (userResult.rows.length === 0) {
-      console.log('❌ User marty@dailydavid.com not found')
+      console.log('❌ User marty@thedailyforge.com not found')
       return
     }
     

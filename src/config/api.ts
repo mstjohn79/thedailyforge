@@ -16,7 +16,7 @@ const getApiUrl = () => {
   }
   
   // Fallback for SSR (production)
-  return 'https://thedailydavid.vercel.app'
+  return 'https://thedailyforge.vercel.app'
 }
 
 export const API_BASE_URL = getApiUrl()

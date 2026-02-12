@@ -12,7 +12,7 @@ async function testLogin() {
     const client = await pool.connect()
     
     // Test the exact login logic from the server
-    const email = 'marty@dailydavid.com'
+    const email = 'marty@thedailyforge.com'
     const password = 'Marty15!'
     
     // Get user by email

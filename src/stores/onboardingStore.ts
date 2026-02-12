@@ -45,8 +45,8 @@ interface TourStep {
 const tourSteps: TourStep[] = [
   {
     id: 1,
-    title: "Welcome to Daily David!",
-    message: "Welcome to Daily David! This is your spiritual growth dashboard. Here you'll see your daily streak, weekly progress, and goal completion.",
+    title: "Welcome to The Daily Forge!",
+    message: "Welcome to The Daily Forge! This is your spiritual growth dashboard. Here you'll see your daily streak, weekly progress, and goal completion.",
     action: "Let's start your first daily entry!",
     target: "[data-tour='dashboard-stats']",
     route: "/dashboard",

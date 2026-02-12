@@ -16,11 +16,11 @@ async function testDemoUser() {
     // Check if user exists
     const result = await client.query(
       'SELECT id, email, password_hash, display_name, is_admin, created_at FROM users WHERE email = $1',
-      ['demo@dailydavid.com']
+      ['demo@thedailyforge.com']
     )
     
     if (result.rows.length === 0) {
-      console.log('❌ User demo@dailydavid.com not found in database')
+      console.log('❌ User demo@thedailyforge.com not found in database')
       return
     }
     
