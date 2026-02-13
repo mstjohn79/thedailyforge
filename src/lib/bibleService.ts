@@ -1,5 +1,5 @@
-// Bible Service for integrating with API.Bible
-// This will handle scripture retrieval and integration with SOAP study
+// Bible Service for retrieving scripture from our Neon PostgreSQL database
+// ESV and NLT translations are stored locally for fast, reliable access
 
 import { BibleBook, FetchedVerse } from '../types'
 
@@ -15,6 +15,7 @@ export interface BibleVerse {
   reference: string;
   content: string;
   copyright: string;
+  verseId?: string;
 }
 
 export interface ReadingPlan {
@@ -34,22 +35,36 @@ export interface DevotionDay {
   content: string;
 }
 
-class BibleService {
-  private apiKey: string;
-  private baseUrl = 'https://api.scripture.api.bible/v1';
-  private defaultBibleId = 'de4e12af7f28f599-02'; // ESV Bible ID
+// Book name mapping for display
+const BOOK_NAME_MAP: Record<string, string> = {
+  'GEN': 'Genesis', 'EXO': 'Exodus', 'LEV': 'Leviticus', 'NUM': 'Numbers', 'DEU': 'Deuteronomy',
+  'JOS': 'Joshua', 'JDG': 'Judges', 'RUT': 'Ruth', '1SA': '1 Samuel', '2SA': '2 Samuel',
+  '1KI': '1 Kings', '2KI': '2 Kings', '1CH': '1 Chronicles', '2CH': '2 Chronicles', 'EZR': 'Ezra',
+  'NEH': 'Nehemiah', 'EST': 'Esther', 'JOB': 'Job', 'PSA': 'Psalms', 'PRO': 'Proverbs',
+  'ECC': 'Ecclesiastes', 'SNG': 'Song of Solomon', 'ISA': 'Isaiah', 'JER': 'Jeremiah', 'LAM': 'Lamentations',
+  'EZK': 'Ezekiel', 'DAN': 'Daniel', 'HOS': 'Hosea', 'JOL': 'Joel', 'AMO': 'Amos',
+  'OBA': 'Obadiah', 'JON': 'Jonah', 'MIC': 'Micah', 'NAH': 'Nahum', 'HAB': 'Habakkuk',
+  'ZEP': 'Zephaniah', 'HAG': 'Haggai', 'ZEC': 'Zechariah', 'MAL': 'Malachi',
+  'MAT': 'Matthew', 'MRK': 'Mark', 'LUK': 'Luke', 'JHN': 'John', 'ACT': 'Acts',
+  'ROM': 'Romans', '1CO': '1 Corinthians', '2CO': '2 Corinthians', 'GAL': 'Galatians', 'EPH': 'Ephesians',
+  'PHP': 'Philippians', 'COL': 'Colossians', '1TH': '1 Thessalonians', '2TH': '2 Thessalonians', '1TI': '1 Timothy',
+  '2TI': '2 Timothy', 'TIT': 'Titus', 'PHM': 'Philemon', 'HEB': 'Hebrews', 'JAS': 'James',
+  '1PE': '1 Peter', '2PE': '2 Peter', '1JN': '1 John', '2JN': '2 John', '3JN': '3 John',
+  'JUD': 'Jude', 'REV': 'Revelation'
+};
 
-  constructor(apiKey?: string) {
-    // API.Bible API key for The Daily David app
-    this.apiKey = apiKey || '580329b134bf13e4305a57695080195b';
+class BibleService {
+  private defaultTranslation = 'esv'; // Default to ESV
+
+  constructor() {
+    // Verses are stored in our Neon PostgreSQL database - no external API needed
   }
 
-  // Get available Bible versions
+  // Get available Bible versions - ESV and NLT
   async getBibleVersions(): Promise<BibleVersion[]> {
-    // Return only ESV and NIV for now
     return [
-      { id: 'de4e12af7f28f599-02', name: 'English Standard Version', language: 'English', abbreviation: 'ESV' },
-      { id: '65eec8e0b60e656b-01', name: 'New International Version', language: 'English', abbreviation: 'NIV' }
+      { id: 'esv', name: 'English Standard Version', language: 'English', abbreviation: 'ESV' },
+      { id: 'nlt', name: 'New Living Translation', language: 'English', abbreviation: 'NLT' }
     ];
   }
 
@@ -144,71 +159,94 @@ class BibleService {
     ]
   }
 
-  // Get a specific verse
-  async getVerse(bibleId: string, verseId: string): Promise<BibleVerse | null> {
-    if (!this.apiKey) {
-      console.warn('No API key provided. Please get an API key from API.Bible to use real scripture data.');
-      return null;
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/bibles/${bibleId}/verses/${verseId}`, {
-        headers: { 'api-key': this.apiKey }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
+  // Parse verse ID format (e.g., "PSA.18.1" or "PSA.18.1-PSA.18.3")
+  private parseVerseId(verseId: string): { bookId: string; chapter: number; startVerse: number; endVerse: number } | null {
+    // Handle range format like "PSA.18.1-PSA.18.3"
+    if (verseId.includes('-')) {
+      const [start, end] = verseId.split('-');
+      const startParts = start.split('.');
+      const endParts = end.split('.');
+      if (startParts.length >= 3 && endParts.length >= 3) {
         return {
-          id: data.data.id,
-          reference: data.data.reference,
-          content: this.cleanHtmlContent(data.data.content),
-          copyright: data.data.copyright || 'Bible'
+          bookId: startParts[0],
+          chapter: parseInt(startParts[1]),
+          startVerse: parseInt(startParts[2]),
+          endVerse: parseInt(endParts[2])
         };
-      } else {
-        console.error('API.Bible error:', response.status, response.statusText);
+      }
+    }
+    
+    // Handle single verse format like "PSA.18.1"
+    const parts = verseId.split('.');
+    if (parts.length >= 3) {
+      return {
+        bookId: parts[0],
+        chapter: parseInt(parts[1]),
+        startVerse: parseInt(parts[2]),
+        endVerse: parseInt(parts[2])
+      };
+    }
+    
+    return null;
+  }
+
+  // Get a specific verse or verse range from our database
+  async getVerse(translation: string, verseId: string): Promise<BibleVerse | null> {
+    try {
+      const parsed = this.parseVerseId(verseId);
+      if (!parsed) {
+        console.error('Invalid verse ID format:', verseId);
         return null;
       }
+
+      const { bookId, chapter, startVerse, endVerse } = parsed;
+      
+      // Use the translation ID directly (esv or nlt)
+      const translationParam = translation === 'esv' || translation === 'nlt' ? translation : this.defaultTranslation;
+      
+      // Fetch from our database API
+      const params = new URLSearchParams({
+        translation: translationParam,
+        bookId,
+        chapter: chapter.toString(),
+        startVerse: startVerse.toString(),
+        endVerse: endVerse.toString()
+      });
+      
+      const response = await fetch(`/api/bible/verses?${params}`);
+      
+      if (!response.ok) {
+        console.error('Database API error:', response.status, response.statusText);
+        return null;
+      }
+
+      const data = await response.json();
+      
+      if (!data.success || data.verses.length === 0) {
+        return null;
+      }
+
+      return {
+        id: verseId,
+        reference: data.combinedReference,
+        content: data.combinedContent,
+        copyright: data.copyright
+      };
     } catch (error) {
-      console.error('Error fetching verse from API.Bible:', error);
+      console.error('Error fetching verse from database:', error);
       return null;
     }
   }
 
-  // Search for verses
-  async searchVerses(bibleId: string, query: string): Promise<BibleVerse[]> {
-    if (!this.apiKey) {
-      console.warn('No API key provided. Please get an API key from API.Bible to search scripture.');
-      return [];
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/bibles/${bibleId}/search?query=${encodeURIComponent(query)}`, {
-        headers: { 'api-key': this.apiKey }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        return data.data?.verses?.map((verse: any) => ({
-          id: verse.id,
-          reference: verse.reference,
-          content: this.cleanHtmlContent(verse.content),
-          copyright: verse.copyright || 'Bible'
-        })) || [];
-      } else {
-        console.error('API.Bible search error:', response.status, response.statusText);
-        return [];
-      }
-    } catch (error) {
-      console.error('Error searching verses:', error);
-      return [];
-    }
+  // Search for verses (can be implemented with database full-text search)
+  async searchVerses(translation: string, query: string): Promise<BibleVerse[]> {
+    // TODO: Implement full-text search in database
+    console.log('Search not yet implemented:', query);
+    return [];
   }
 
-  // Get reading plans (Note: API.Bible doesn't provide reading plans)
-  // This would need to be custom content or integration with other services
+  // Get reading plans - Custom devotional content
   async getReadingPlans(): Promise<ReadingPlan[]> {
-    // API.Bible doesn't provide reading plans - this would be custom content
-    // We can create our own manly devotional tracks using their scripture API
     return [
       {
         id: 'warrior-psalms',
@@ -331,7 +369,7 @@ class BibleService {
   }
 
   // Get today's devotion from a custom reading plan
-  async getTodaysDevotion(planId: string, bibleId?: string, day?: number): Promise<DevotionDay | null> {
+  async getTodaysDevotion(planId: string, translation?: string, day?: number): Promise<DevotionDay | null> {
     const now = new Date();
     
     // Get the full reading plans to access all verses
@@ -348,9 +386,9 @@ class BibleService {
     const safeDayIndex = Math.min(dayIndex, plan.verses.length - 1);
     const verseId = plan.verses[safeDayIndex];
     
-    // Use the selected Bible version or default to ESV
-    const selectedBibleId = bibleId || this.defaultBibleId;
-    const verse = await this.getVerse(selectedBibleId, verseId);
+    // Use the selected translation or default to ESV
+    const selectedTranslation = translation || this.defaultTranslation;
+    const verse = await this.getVerse(selectedTranslation, verseId);
     if (!verse) return null;
 
     return {
@@ -363,31 +401,35 @@ class BibleService {
 
 
 
-  // Get a range of verses
-  async getVerseRange(bibleId: string, bookId: string, chapter: number, startVerse: number, endVerse: number): Promise<FetchedVerse[]> {
-    if (!this.apiKey) {
-      console.warn('No API key provided. Please get an API key from API.Bible to fetch verses.');
-      return [];
-    }
-
+  // Get a range of verses from our database
+  async getVerseRange(translation: string, bookId: string, chapter: number, startVerse: number, endVerse: number): Promise<FetchedVerse[]> {
     try {
-      const verses: FetchedVerse[] = [];
+      // Use the translation ID directly (esv or nlt)
+      const translationParam = translation === 'esv' || translation === 'nlt' ? translation : this.defaultTranslation;
       
-      // Fetch each verse individually to get proper formatting
-      for (let verseNum = startVerse; verseNum <= endVerse; verseNum++) {
-        const verseId = this.formatVerseId(bookId, chapter, verseNum);
-        const verse = await this.getVerse(bibleId, verseId);
-        
-        if (verse) {
-          verses.push({
-            reference: verse.reference,
-            content: verse.content,
-            verseId: verse.id
-          });
-        }
+      // Fetch from our database API
+      const params = new URLSearchParams({
+        translation: translationParam,
+        bookId,
+        chapter: chapter.toString(),
+        startVerse: startVerse.toString(),
+        endVerse: endVerse.toString()
+      });
+      
+      const response = await fetch(`/api/bible/verses?${params}`);
+      
+      if (!response.ok) {
+        console.error('Database API error:', response.status, response.statusText);
+        return [];
       }
+
+      const data = await response.json();
       
-      return verses;
+      if (!data.success || data.verses.length === 0) {
+        return [];
+      }
+
+      return data.verses;
     } catch (error) {
       console.error('Error fetching verse range:', error);
       return [];
@@ -433,30 +475,6 @@ class BibleService {
       console.error('Error fetching chapter verses:', error)
       return []
     }
-  }
-
-  // Clean HTML content from API.Bible response
-  private cleanHtmlContent(htmlContent: string): string {
-    if (!htmlContent) return '';
-    
-    // Remove HTML tags and clean up the content
-    let cleaned = htmlContent
-      // Remove all HTML tags
-      .replace(/<[^>]*>/g, '')
-      // Clean up verse numbers and formatting
-      .replace(/\d+\s*/g, '')
-      // Add spaces between sentences/verses
-      .replace(/\.([A-Z])/g, '. $1')
-      // Remove extra whitespace and normalize
-      .replace(/\s+/g, ' ')
-      .trim();
-    
-    // If the content is too short or empty, return the original
-    if (cleaned.length < 10) {
-      return htmlContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-    }
-    
-    return cleaned;
   }
 }
 

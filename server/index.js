@@ -2002,6 +2002,71 @@ app.get('/api/bible/books/:bookId/chapters/:chapter/verses', async (req, res) =>
   }
 })
 
+// Get verses from database (ESV and NLT stored locally)
+app.get('/api/bible/verses', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    const { translation, bookId, chapter, startVerse, endVerse } = req.query
+    
+    if (!translation || !bookId || !chapter || !startVerse) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters: translation, bookId, chapter, startVerse' 
+      })
+    }
+    
+    const end = endVerse || startVerse
+    
+    const result = await client.query(`
+      SELECT book_name, chapter, verse, text 
+      FROM bible_verses 
+      WHERE translation = $1 
+        AND book_id = $2 
+        AND chapter = $3 
+        AND verse >= $4 
+        AND verse <= $5
+      ORDER BY verse
+    `, [translation, bookId, parseInt(chapter), parseInt(startVerse), parseInt(end)])
+    
+    if (result.rows.length === 0) {
+      return res.json({ success: true, verses: [] })
+    }
+    
+    // Format response
+    const verses = result.rows.map(row => ({
+      reference: `${row.book_name} ${row.chapter}:${row.verse}`,
+      content: row.text,
+      verseId: `${bookId}.${row.chapter}.${row.verse}`
+    }))
+    
+    // Build combined reference for verse range
+    const firstVerse = result.rows[0]
+    const lastVerse = result.rows[result.rows.length - 1]
+    let combinedReference = `${firstVerse.book_name} ${firstVerse.chapter}:${firstVerse.verse}`
+    if (result.rows.length > 1) {
+      combinedReference = `${firstVerse.book_name} ${firstVerse.chapter}:${firstVerse.verse}-${lastVerse.verse}`
+    }
+    
+    // Get copyright based on translation
+    const copyright = translation === 'esv' 
+      ? 'Scripture quotations are from the ESV® Bible, copyright © 2001 by Crossway.'
+      : 'Scripture quotations are from the Holy Bible, New Living Translation, copyright © 1996, 2004, 2015 by Tyndale House Foundation.'
+    
+    res.json({ 
+      success: true, 
+      verses,
+      combinedReference,
+      combinedContent: verses.map(v => v.content).join(' '),
+      copyright
+    })
+  } catch (error) {
+    console.error('Get verses error:', error)
+    res.status(500).json({ success: false, error: 'Failed to fetch verses' })
+  } finally {
+    client.release()
+  }
+})
+
 // Support contact endpoint
 app.post('/api/support/contact', authenticateToken, async (req, res) => {
   try {

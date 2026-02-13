@@ -37,7 +37,7 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = ({
 
   // Verse selector state
   const [bibleVersions, setBibleVersions] = useState<BibleVersion[]>([]);
-  const [selectedBible, setSelectedBible] = useState<string>('de4e12af7f28f599-02');
+  const [selectedBible, setSelectedBible] = useState<string>('esv');
   const [books, setBooks] = useState<any[]>([]);
   const [selectedBook, setSelectedBook] = useState('GEN');
   const [selectedChapter, setSelectedChapter] = useState<number | ''>('');
