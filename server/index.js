@@ -2067,6 +2067,53 @@ app.get('/api/bible/verses', async (req, res) => {
   }
 })
 
+// Get all verses for a chapter (for M'Cheyne reading plan)
+app.get('/api/bible/chapter', async (req, res) => {
+  const client = await pool.connect()
+  try {
+    const { translation, bookId, chapter } = req.query
+    
+    if (!translation || !bookId || !chapter) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required parameters: translation, bookId, chapter' 
+      })
+    }
+    
+    const result = await client.query(`
+      SELECT book_name, chapter, verse, text 
+      FROM bible_verses 
+      WHERE translation = $1 
+        AND book_id = $2 
+        AND chapter = $3
+      ORDER BY verse
+    `, [translation, bookId, parseInt(chapter)])
+    
+    if (result.rows.length === 0) {
+      return res.json({ success: true, verses: [] })
+    }
+    
+    // Format response
+    const verses = result.rows.map(row => ({
+      verse: row.verse,
+      text: row.text,
+      verse_id: `${bookId}.${row.chapter}.${row.verse}`
+    }))
+    
+    res.json({ 
+      success: true, 
+      verses,
+      bookName: result.rows[0].book_name,
+      chapter: parseInt(chapter)
+    })
+  } catch (error) {
+    console.error('Get chapter error:', error)
+    res.status(500).json({ success: false, error: 'Failed to fetch chapter' })
+  } finally {
+    client.release()
+  }
+})
+
 // Support contact endpoint
 app.post('/api/support/contact', authenticateToken, async (req, res) => {
   try {
