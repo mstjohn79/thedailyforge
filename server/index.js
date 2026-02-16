@@ -126,11 +126,51 @@ app.get('/api/debug/tables', async (req, res) => {
         ORDER BY table_name
       `)
       
+      // Get prayer_requests schema and data
+      const prayerSchema = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'prayer_requests'
+        ORDER BY ordinal_position
+      `)
+      const prayerCount = await client.query('SELECT COUNT(*) as count FROM prayer_requests')
+      const recentPrayers = await client.query(`
+        SELECT id, user_id, title, category, status, priority, created_at 
+        FROM prayer_requests 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `)
+      
+      // Get sermon_notes schema and data
+      const sermonSchema = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'sermon_notes'
+        ORDER BY ordinal_position
+      `)
+      const sermonCount = await client.query('SELECT COUNT(*) as count FROM sermon_notes')
+      const recentSermons = await client.query(`
+        SELECT id, user_id, sermon_title, church_name, date, created_at 
+        FROM sermon_notes 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `)
+      
       res.json({ 
         success: true, 
         all_tables: tablesResult.rows,
         daily_forge_entries: dailyEntriesResult.rows,
-        potential_entry_tables: otherTablesResult.rows
+        potential_entry_tables: otherTablesResult.rows,
+        prayer_requests: {
+          schema: prayerSchema.rows,
+          count: parseInt(prayerCount.rows[0].count),
+          recent: recentPrayers.rows
+        },
+        sermon_notes: {
+          schema: sermonSchema.rows,
+          count: parseInt(sermonCount.rows[0].count),
+          recent: recentSermons.rows
+        }
       })
     } finally {
       client.release()
