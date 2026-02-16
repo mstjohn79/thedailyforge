@@ -3,6 +3,7 @@
 
 import { BibleBook, FetchedVerse } from '../types'
 import { MCHEYNE_PLAN, getMcheyneDay, getDayOfYear, formatReadingDisplay, McheyneDay } from '../data/mcheyneReadingPlan'
+import { API_BASE_URL } from '../config/api'
 
 export interface BibleVersion {
   id: string;
@@ -72,7 +73,7 @@ class BibleService {
   // Get all Bible books with metadata from database
   async getBibleBooks(bibleId?: string): Promise<BibleBook[]> {
     try {
-      const response = await fetch(`/api/bible/books${bibleId ? `?bibleId=${bibleId}` : ''}`)
+      const response = await fetch(`${API_BASE_URL}/api/bible/books${bibleId ? `?bibleId=${bibleId}` : ''}`)
       if (!response.ok) {
         throw new Error('Failed to fetch Bible books')
       }
@@ -214,7 +215,7 @@ class BibleService {
         endVerse: endVerse.toString()
       });
       
-      const response = await fetch(`/api/bible/verses?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/bible/verses?${params}`);
       
       if (!response.ok) {
         console.error('Database API error:', response.status, response.statusText);
@@ -327,7 +328,7 @@ class BibleService {
         endVerse: endVerse.toString()
       });
       
-      const response = await fetch(`/api/bible/verses?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/bible/verses?${params}`);
       
       if (!response.ok) {
         console.error('Database API error:', response.status, response.statusText);
@@ -358,7 +359,7 @@ class BibleService {
         chapter: chapter.toString()
       });
       
-      const response = await fetch(`/api/bible/chapter?${params}`);
+      const response = await fetch(`${API_BASE_URL}/api/bible/chapter?${params}`);
       
       if (!response.ok) {
         console.error('Chapter API error:', response.status, response.statusText);
@@ -400,7 +401,7 @@ class BibleService {
   // Get chapters for a specific book
   async getBookChapters(bookId: string, bibleId?: string): Promise<{ chapter: number; verseCount: number }[]> {
     try {
-      const response = await fetch(`/api/bible/books/${bookId}/chapters${bibleId ? `?bibleId=${bibleId}` : ''}`)
+      const response = await fetch(`${API_BASE_URL}/api/bible/books/${bookId}/chapters${bibleId ? `?bibleId=${bibleId}` : ''}`)
       if (!response.ok) {
         throw new Error('Failed to fetch book chapters')
       }
@@ -415,7 +416,7 @@ class BibleService {
   // Get verses for a specific chapter
   async getChapterVerses(bookId: string, chapter: number, bibleId?: string): Promise<{ verse: number }[]> {
     try {
-      const response = await fetch(`/api/bible/books/${bookId}/chapters/${chapter}/verses${bibleId ? `?bibleId=${bibleId}` : ''}`)
+      const response = await fetch(`${API_BASE_URL}/api/bible/books/${bookId}/chapters/${chapter}/verses${bibleId ? `?bibleId=${bibleId}` : ''}`)
       if (!response.ok) {
         throw new Error('Failed to fetch chapter verses')
       }
