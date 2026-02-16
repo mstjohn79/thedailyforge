@@ -141,6 +141,70 @@ app.get('/api/debug/tables', async (req, res) => {
   }
 })
 
+// Debug endpoint to check prayer_requests and sermon_notes table schemas
+app.get('/api/debug/module-tables', async (req, res) => {
+  try {
+    const client = await pool.connect()
+    
+    try {
+      // Get prayer_requests table schema
+      const prayerSchema = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'prayer_requests'
+        ORDER BY ordinal_position
+      `)
+      
+      // Get sermon_notes table schema
+      const sermonSchema = await client.query(`
+        SELECT column_name, data_type, is_nullable
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'sermon_notes'
+        ORDER BY ordinal_position
+      `)
+      
+      // Get sample data counts
+      const prayerCount = await client.query('SELECT COUNT(*) as count FROM prayer_requests')
+      const sermonCount = await client.query('SELECT COUNT(*) as count FROM sermon_notes')
+      
+      // Get recent prayer requests (without user data)
+      const recentPrayers = await client.query(`
+        SELECT id, title, category, status, priority, created_at 
+        FROM prayer_requests 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `)
+      
+      // Get recent sermon notes (without user data)
+      const recentSermons = await client.query(`
+        SELECT id, sermon_title, church_name, date, created_at 
+        FROM sermon_notes 
+        ORDER BY created_at DESC 
+        LIMIT 5
+      `)
+      
+      res.json({ 
+        success: true, 
+        prayer_requests: {
+          schema: prayerSchema.rows,
+          count: parseInt(prayerCount.rows[0].count),
+          recent: recentPrayers.rows
+        },
+        sermon_notes: {
+          schema: sermonSchema.rows,
+          count: parseInt(sermonCount.rows[0].count),
+          recent: recentSermons.rows
+        }
+      })
+    } finally {
+      client.release()
+    }
+  } catch (error) {
+    console.error('Debug module tables error:', error)
+    res.status(500).json({ success: false, error: error.message })
+  }
+})
+
 // Simple login endpoint
 app.post('/api/auth/login', rateLimits.login, validateLogin, async (req, res) => {
   try {
