@@ -54,8 +54,8 @@ export function SOAPSection({
   const handleInputChange = (field: keyof SOAPData, value: string) => {
     const newSOAP = { ...localSOAP, [field]: value }
     setLocalSOAP(newSOAP)
-    // Update parent component but don't auto-save on every keystroke
-    onUpdate(newSOAP)
+    // DON'T update parent on every keystroke - this causes re-renders and flashing
+    // Only update parent on blur (see handleInputBlur)
   }
 
   const handleInputBlur = (field: keyof SOAPData) => {

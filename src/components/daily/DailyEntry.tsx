@@ -86,6 +86,7 @@ export function DailyEntry() {
 
   const [isLoading, setIsLoading] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [localDailyIntention, setLocalDailyIntention] = useState('') // Local state to prevent re-renders while typing
   const [userGoals, setUserGoals] = useState<UserGoals>({
     daily: [],
     weekly: [],
@@ -441,6 +442,8 @@ export function DailyEntry() {
           // Store reading plan data but don't show UI until user clicks "Choose Plan"
           readingPlan: readingPlanData
         })
+        // Sync local daily intention state
+        setLocalDailyIntention(entryData.dailyIntention || '')
         
         // Start with goals from current entry
         const currentGoals = entryData.goals || { daily: [], weekly: [], monthly: [] }
@@ -491,6 +494,8 @@ export function DailyEntry() {
           leadershipRating: { wisdom: 5, courage: 5, patience: 5, integrity: 5 },
           readingPlan: existingReadingPlan // Preserve existing reading plan progress
         })
+        // Sync local daily intention state
+        setLocalDailyIntention('')
         
         // Extract weekly and monthly goals from all entries, start with empty daily goals
         const emptyGoals = { daily: [], weekly: [], monthly: [] }
@@ -540,6 +545,15 @@ export function DailyEntry() {
   const isToday = (date: Date) => {
     const today = new Date()
     return date.toDateString() === today.toDateString()
+  }
+
+  // Update state without triggering auto-save (for use with blur handlers that save separately)
+  const handleUpdateNoSave = (section: string, data: any) => {
+    console.log(`Updating ${section} (no auto-save):`, data)
+    setDayData(prev => ({
+      ...prev,
+      [section]: data
+    }))
   }
 
   const handleUpdate = (section: string, data: any) => {
@@ -1587,7 +1601,7 @@ export function DailyEntry() {
             >
               <SOAPSection 
                 soap={dayData.soap}
-                onUpdate={(soap) => handleUpdate('soap', soap)}
+                onUpdate={(soap) => handleUpdateNoSave('soap', soap)}
                 readingPlan={dayData.readingPlan}
                 onStartReadingPlan={handleStartReadingPlan}
                 onUpdateReadingPlan={handleUpdateReadingPlan}
@@ -1615,10 +1629,11 @@ export function DailyEntry() {
                 How do you intend to take action, accomplish your goals, and act like a Man of God?
               </p>
               <Textarea
-                value={dayData.dailyIntention}
-                onChange={(e) => handleUpdate('dailyIntention', e.target.value)}
+                value={localDailyIntention}
+                onChange={(e) => setLocalDailyIntention(e.target.value)}
                 onBlur={() => {
-                  // Auto-save when user finishes typing
+                  // Update parent state without auto-save (we trigger save manually below)
+                  handleUpdateNoSave('dailyIntention', localDailyIntention)
                   setTimeout(() => {
                     window.dispatchEvent(new CustomEvent('triggerSave'))
                   }, 100)
