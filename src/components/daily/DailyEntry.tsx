@@ -546,16 +546,6 @@ export function DailyEntry() {
     const today = new Date()
     return date.toDateString() === today.toDateString()
   }
-
-  // Update state without triggering auto-save (for use with blur handlers that save separately)
-  const handleUpdateNoSave = (section: string, data: any) => {
-    console.log(`Updating ${section} (no auto-save):`, data)
-    setDayData(prev => ({
-      ...prev,
-      [section]: data
-    }))
-  }
-
   const handleUpdate = (section: string, data: any) => {
     console.log(`Updating ${section}:`, data)
     console.log(`SOAP data being updated:`, data)
@@ -1601,7 +1591,7 @@ export function DailyEntry() {
             >
               <SOAPSection 
                 soap={dayData.soap}
-                onUpdate={(soap) => handleUpdateNoSave('soap', soap)}
+                onUpdate={(soap) => handleUpdate('soap', soap)}
                 readingPlan={dayData.readingPlan}
                 onStartReadingPlan={handleStartReadingPlan}
                 onUpdateReadingPlan={handleUpdateReadingPlan}
@@ -1632,11 +1622,8 @@ export function DailyEntry() {
                 value={localDailyIntention}
                 onChange={(e) => setLocalDailyIntention(e.target.value)}
                 onBlur={() => {
-                  // Update parent state without auto-save (we trigger save manually below)
-                  handleUpdateNoSave('dailyIntention', localDailyIntention)
-                  setTimeout(() => {
-                    window.dispatchEvent(new CustomEvent('triggerSave'))
-                  }, 100)
+                  // Update parent state with auto-save
+                  handleUpdate('dailyIntention', localDailyIntention)
                 }}
                 placeholder="Set your intention for today... (e.g., 'I will lead with patience and listen more than I speak')"
                 rows={3}

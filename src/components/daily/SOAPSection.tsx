@@ -60,12 +60,9 @@ export function SOAPSection({
 
   const handleInputBlur = (field: keyof SOAPData) => {
     // Update parent component when user finishes typing
+    // Parent's handleUpdate already includes auto-save
     console.log('SOAP: Input blur on field:', field, 'value:', localSOAP[field])
     onUpdate(localSOAP)
-    // Auto-save when user moves away from field
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('triggerSave'))
-    }, 500)
   }
 
   const handleVerseSelect = (verse: any) => {
@@ -76,10 +73,6 @@ export function SOAPSection({
     }
     setLocalSOAP(newSOAP)
     onUpdate(newSOAP)
-    // Trigger auto-save
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('triggerSave'))
-    }, 100)
   }
 
   const soapSections = [
