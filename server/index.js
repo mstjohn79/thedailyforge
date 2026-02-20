@@ -2046,17 +2046,10 @@ app.get('/api/bible/books/:bookId/chapters', async (req, res) => {
   const client = await pool.connect()
   try {
     const { bookId } = req.params
-    const { bibleId } = req.query
+    // Note: bible_id filter removed - chapter counts are universal across translations
     
-    let query = 'SELECT chapter_number, verse_count FROM bible_chapters WHERE book_id = $1'
+    const query = 'SELECT chapter_number, verse_count FROM bible_chapters WHERE book_id = $1 ORDER BY chapter_number'
     const params = [bookId]
-    
-    if (bibleId) {
-      query += ' AND bible_id = $2'
-      params.push(bibleId)
-    }
-    
-    query += ' ORDER BY chapter_number'
     
     const result = await client.query(query, params)
     
@@ -2078,15 +2071,10 @@ app.get('/api/bible/books/:bookId/chapters/:chapter/verses', async (req, res) =>
   const client = await pool.connect()
   try {
     const { bookId, chapter } = req.params
-    const { bibleId } = req.query
+    // Note: bible_id filter removed - verse counts are universal across translations
     
-    let query = 'SELECT verse_count FROM bible_chapters WHERE book_id = $1 AND chapter_number = $2'
+    const query = 'SELECT verse_count FROM bible_chapters WHERE book_id = $1 AND chapter_number = $2'
     const params = [bookId, parseInt(chapter)]
-    
-    if (bibleId) {
-      query += ' AND bible_id = $3'
-      params.push(bibleId)
-    }
     
     const result = await client.query(query, params)
     
