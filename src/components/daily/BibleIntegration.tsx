@@ -1,7 +1,7 @@
 // Bible Integration Component for SOAP Study
 // This demonstrates how we can integrate scripture selection with SOAP study
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
@@ -25,6 +25,8 @@ interface BibleIntegrationProps {
   };
 }
 
+// NEVER re-render this component due to parent state changes
+// It manages its own state and only needs the callback ref
 export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({ 
   onVerseSelect, 
   // These props are kept for API compatibility but not used in M'Cheyne mode
@@ -35,6 +37,17 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   currentReadingPlan: _currentReadingPlan
 }) => {
+
+  // Use ref to always have latest callback without causing re-renders
+  const onVerseSelectRef = useRef(onVerseSelect);
+  useEffect(() => {
+    onVerseSelectRef.current = onVerseSelect;
+  });
+
+  // Stable callback that uses the ref
+  const handleVerseSelectStable = (verse: BibleVerse) => {
+    onVerseSelectRef.current(verse);
+  };
 
   // Tab toggle state
   const [activeMode, setActiveMode] = useState<'verse' | 'plan'>('plan');
@@ -190,7 +203,7 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({
     }
     
     const content = verses.map(v => `${v.reference.split(':')[1]} ${v.content}`).join('\n\n');
-    onVerseSelect({
+    handleVerseSelectStable({
       id: 'selected',
       reference: reference,
       content: content,
@@ -209,7 +222,7 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({
     setAvailableChapters([]);
     setAvailableVerses([]);
     // Clear the selected verse in parent component
-    onVerseSelect({
+    handleVerseSelectStable({
       id: '',
       reference: '',
       content: '',
@@ -415,7 +428,7 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({
       const bookChapter = firstVerse.reference.split(':')[0];
       
       const content = chapterContent.map(v => `${v.reference.split(':')[1]} ${v.content}`).join('\n\n');
-      onVerseSelect({
+      handleVerseSelectStable({
         id: 'selected',
         reference: bookChapter,
         content: content,
@@ -723,4 +736,5 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({
       )}
     </Card>
   );
-});
+// Never re-render due to prop changes - this component is self-contained
+}, () => true);
