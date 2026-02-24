@@ -25,7 +25,7 @@ interface BibleIntegrationProps {
   };
 }
 
-export const BibleIntegration: React.FC<BibleIntegrationProps> = ({ 
+export const BibleIntegration: React.FC<BibleIntegrationProps> = React.memo(({ 
   onVerseSelect, 
   // These props are kept for API compatibility but not used in M'Cheyne mode
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -723,4 +723,4 @@ export const BibleIntegration: React.FC<BibleIntegrationProps> = ({
       )}
     </Card>
   );
-};
+});

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { SOAPData } from '@/types'
 import { BibleIntegration } from './BibleIntegration'
 import { BookOpen, Target, Heart, Lightbulb } from 'lucide-react'
@@ -42,14 +42,23 @@ export function SOAPSection({
     prayer: ''
   })
 
+  // Only sync from parent when actual values change (not just object reference)
+  // This prevents flashing when parent re-renders with same data
   useEffect(() => {
-    setLocalSOAP(soap || {
-      scripture: '',
-      observation: '',
-      application: '',
-      prayer: ''
-    })
-  }, [soap])
+    const defaultSOAP = { scripture: '', observation: '', application: '', prayer: '' }
+    const incomingSOAP = soap || defaultSOAP
+    
+    // Compare actual values to avoid unnecessary re-renders
+    const hasChanged = 
+      localSOAP.scripture !== incomingSOAP.scripture ||
+      localSOAP.observation !== incomingSOAP.observation ||
+      localSOAP.application !== incomingSOAP.application ||
+      localSOAP.prayer !== incomingSOAP.prayer
+    
+    if (hasChanged) {
+      setLocalSOAP(incomingSOAP)
+    }
+  }, [soap?.scripture, soap?.observation, soap?.application, soap?.prayer])
 
   const handleInputChange = (field: keyof SOAPData, value: string) => {
     const newSOAP = { ...localSOAP, [field]: value }
@@ -65,15 +74,31 @@ export function SOAPSection({
     onUpdate(localSOAP)
   }
 
-  const handleVerseSelect = (verse: any) => {
+  // Memoize handleVerseSelect to prevent BibleIntegration re-renders
+  const handleVerseSelect = useCallback((verse: any) => {
     console.log('SOAP: Received verse selection:', verse);
-    const newSOAP = { 
-      ...localSOAP, 
-      scripture: verse.reference && verse.content ? `${verse.reference} - ${verse.content}` : '' 
+    setLocalSOAP(prev => {
+      const newSOAP = { 
+        ...prev, 
+        scripture: verse.reference && verse.content ? `${verse.reference} - ${verse.content}` : '' 
+      }
+      onUpdate(newSOAP)
+      return newSOAP
+    })
+  }, [onUpdate])
+
+  // Memoize selectedVerse to prevent new object on every render
+  const selectedVerse = useMemo(() => {
+    if (localSOAP.scripture && localSOAP.scripture.includes(' - ')) {
+      return {
+        id: 'selected',
+        reference: localSOAP.scripture.split(' - ')[0] || '',
+        content: localSOAP.scripture.split(' - ')[1] || '',
+        copyright: 'Bible'
+      }
     }
-    setLocalSOAP(newSOAP)
-    onUpdate(newSOAP)
-  }
+    return undefined
+  }, [localSOAP.scripture])
 
   const soapSections = [
     {
@@ -115,12 +140,7 @@ export function SOAPSection({
       {/* Bible Integration Component */}
       <BibleIntegration 
         onVerseSelect={handleVerseSelect}
-        selectedVerse={localSOAP.scripture && localSOAP.scripture.includes(' - ') ? {
-          id: 'selected',
-          reference: localSOAP.scripture.split(' - ')[0] || '',
-          content: localSOAP.scripture.split(' - ')[1] || '',
-          copyright: 'Bible'
-        } : undefined}
+        selectedVerse={selectedVerse}
         onStartReadingPlan={onStartReadingPlan}
         currentReadingPlan={readingPlan}
       />
