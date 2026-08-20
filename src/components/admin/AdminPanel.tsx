@@ -136,7 +136,7 @@ export function AdminPanel({ dbManager }: AdminPanelProps) {
               Admin Panel
             </h1>
             <p className="text-slate-300 mt-2">
-              Manage users and system settings for The Daily David
+              Manage users and system settings for The Daily Forge
             </p>
           </motion.div>
           
@@ -306,7 +306,7 @@ export function AdminPanel({ dbManager }: AdminPanelProps) {
             <h2 className="text-xl font-bold text-white mb-4">System Information</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="font-medium text-slate-300">Version:</span> <span className="text-white">Daily David Modern v2.0</span>
+                <span className="font-medium text-slate-300">Version:</span> <span className="text-white">The Daily Forge v2.0</span>
               </div>
               <div>
                 <span className="font-medium text-slate-300">Database:</span> <span className="text-white">Neon PostgreSQL</span>

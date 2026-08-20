@@ -1,5 +1,5 @@
 export const APP_CONFIG = {
-  name: 'The Daily David',
+  name: 'The Daily Forge',
   version: '2.0.0',
   description: 'Modern spiritual growth and discipleship tracking',
 }

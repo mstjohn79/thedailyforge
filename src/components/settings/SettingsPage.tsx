@@ -55,7 +55,7 @@ export const SettingsPage: React.FC = () => {
         className="text-center"
       >
         <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 sm:mb-4">Settings</h1>
-        <p className="text-sm sm:text-base lg:text-xl text-green-200 px-4">Manage your Daily David preferences, notifications, and support</p>
+        <p className="text-sm sm:text-base lg:text-xl text-green-200 px-4">Manage your Daily Forge preferences, notifications, and support</p>
       </motion.div>
 
       <div className="flex flex-col xl:flex-row gap-4 sm:gap-6 lg:gap-8">

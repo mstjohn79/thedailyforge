@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { BookOpen, BarChart3, Settings, LogOut, Mountain, TrendingUp, Menu, X, BookMarked, Sword, User, FileText } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
@@ -9,6 +9,7 @@ import { TakeTourButton } from '../onboarding'
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuthStore()
   const location = useLocation()
+  const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const allNavItems = [
@@ -27,6 +28,9 @@ export const Header: React.FC = () => {
 
   const handleLogout = () => {
     logout()
+    // Previously this left the user sitting on a signed-in route showing
+    // half-rendered, stale content. Send them to the landing page.
+    navigate('/', { replace: true })
   }
 
   return (

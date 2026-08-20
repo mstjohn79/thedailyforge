@@ -401,7 +401,7 @@ export const Dashboard: React.FC = () => {
           <Mountain className="w-16 h-16 text-slate-400 mx-auto mb-4" />
         </div>
         <h1 className="text-4xl font-bold text-white mb-4">
-          Welcome to The Daily David
+          Welcome to The Daily Forge
         </h1>
         <p className="text-green-200 mb-8 max-w-2xl mx-auto text-lg">
           "I have fought the good fight, I have finished the race, I have kept the faith" - 2 Timothy 4:7

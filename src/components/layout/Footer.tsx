@@ -20,7 +20,7 @@ export const Footer: React.FC = () => {
               <span>Contact Support</span>
             </Link>
             <span className="text-slate-500">|</span>
-            <span>© {currentYear} Daily David</span>
+            <span>© {currentYear} The Daily Forge</span>
           </div>
           
           {/* Center: Version */}
