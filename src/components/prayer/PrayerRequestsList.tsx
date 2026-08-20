@@ -30,7 +30,8 @@ export const PrayerRequestsList: React.FC = () => {
   // UI state
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<PrayerCategoryType | 'all'>('all')
-  const [selectedStatus, setSelectedStatus] = useState<PrayerStatusType | 'all'>('all')
+  // Default to Active so what you're currently praying over is what you see.
+  const [selectedStatus, setSelectedStatus] = useState<PrayerStatusType | 'all'>('active')
   const [selectedPriority, setSelectedPriority] = useState<PrayerPriorityType | 'all'>('all')
   const [showForm, setShowForm] = useState(false)
   const [editingRequest, setEditingRequest] = useState<PrayerRequest | null>(null)
@@ -72,8 +73,29 @@ export const PrayerRequestsList: React.FC = () => {
       filtered = filtered.filter(request => request.priority === selectedPriority)
     }
 
-    return filtered
+    // Surface what still needs prayer first: active before answered/closed,
+    // then most urgent, then most recent.
+    const statusRank: Record<string, number> = { active: 0, answered: 1, closed: 2 }
+    const priorityRank: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 }
+
+    return [...filtered].sort((a, b) => {
+      const byStatus = (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9)
+      if (byStatus !== 0) return byStatus
+
+      const byPriority = (priorityRank[a.priority] ?? 9) - (priorityRank[b.priority] ?? 9)
+      if (byPriority !== 0) return byPriority
+
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    })
   }, [requests, searchTerm, selectedCategory, selectedStatus, selectedPriority])
+
+  // Counts for the status toggle, unaffected by the status filter itself.
+  const statusCounts = useMemo(() => ({
+    active: requests.filter(r => r.status === 'active').length,
+    answered: requests.filter(r => r.status === 'answered').length,
+    closed: requests.filter(r => r.status === 'closed').length,
+    all: requests.length,
+  }), [requests])
 
   // Get unique categories for filter
   const categories = useMemo(() => {
@@ -140,9 +162,43 @@ export const PrayerRequestsList: React.FC = () => {
           </p>
         </div>
 
+        {/* Status toggle — Active is the default view; answered stays one tap away */}
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {([
+            { key: 'active', label: 'Active', icon: Clock },
+            { key: 'answered', label: 'Answered', icon: CheckCircle },
+            { key: 'closed', label: 'Closed', icon: X },
+            { key: 'all', label: 'All', icon: null },
+          ] as const).map(({ key, label, icon: Icon }) => {
+            const isSelected = selectedStatus === key
+            return (
+              <button
+                key={key}
+                onClick={() => setSelectedStatus(key)}
+                aria-pressed={isSelected}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                  isSelected
+                    ? 'bg-green-600 border-green-500 text-white shadow-lg'
+                    : 'bg-slate-800/80 border-slate-600/50 text-slate-300 hover:bg-slate-700/80 hover:text-white'
+                }`}
+              >
+                {Icon && <Icon className="w-4 h-4" />}
+                <span>{label}</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-xs ${
+                    isSelected ? 'bg-green-700/70 text-white' : 'bg-slate-700 text-slate-400'
+                  }`}
+                >
+                  {statusCounts[key]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Filters and Search */}
         <div className="bg-slate-800/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-slate-700 mb-8" data-tour="prayer-requests">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Search */}
             <div className="sm:col-span-2 lg:col-span-2">
               <div className="relative">
@@ -178,20 +234,6 @@ export const PrayerRequestsList: React.FC = () => {
                     {category.charAt(0).toUpperCase() + category.slice(1)}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div>
-              <select
-                value={selectedStatus}
-                onChange={(e) => setSelectedStatus(e.target.value as PrayerStatusType | 'all')}
-                className="w-full px-2 py-2 text-sm bg-slate-700/60 border border-slate-600/50 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-slate-500"
-              >
-                <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="answered">Answered</option>
-                <option value="closed">Closed</option>
               </select>
             </div>
 
