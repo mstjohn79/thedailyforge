@@ -223,21 +223,26 @@ export const useAuthStore = create<AuthStore>()(
                 },
                 isAuthenticated: true
               })
-            } else {
-              // Token is invalid, clear it
+            } else if (response.status === 401 || response.status === 403) {
+              // Definitive rejection: the token really is invalid or expired.
               set({
                 user: null,
                 token: null,
                 isAuthenticated: false
               })
+            } else {
+              // Server-side hiccup (5xx, cold start, DB pool exhaustion).
+              // The token may well still be good, so keep the session and let
+              // the next authenticated request decide.
+              console.warn(
+                `Auth verify returned ${response.status}; keeping existing session`
+              )
             }
           } catch (error) {
-            // Token verification failed, clear it
-            set({
-              user: null,
-              token: null,
-              isAuthenticated: false
-            })
+            // Network failure / offline / request timeout. Never sign the user
+            // out for this — it throws away in-progress work for a transient
+            // connectivity blip.
+            console.warn('Auth verify request failed; keeping existing session', error)
           }
         }
       }

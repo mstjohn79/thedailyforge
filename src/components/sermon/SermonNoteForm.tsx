@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuthStore } from '../../stores/authStore'
 import { SermonNoteFormData, FetchedVerse } from '../../types'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
 import { Textarea } from '../ui/Textarea'
 import { BibleVerseSelector } from './BibleVerseSelector'
-import { Church, User, BookOpen, Calendar, FileText, Save } from 'lucide-react'
+import { Church, User, BookOpen, Calendar, FileText, Save, AlertTriangle } from 'lucide-react'
 import { API_BASE_URL } from '../../config/api'
 
 interface SermonNoteFormProps {
@@ -35,6 +35,24 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
   const [isSaving, setIsSaving] = useState(false)
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(editingNoteId || null)
   const [autoSaveTimeout, setAutoSaveTimeout] = useState<number | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [draftRestored, setDraftRestored] = useState(false)
+
+  // Guard against overlapping saves. This is a ref, not state: the previous
+  // `isSaving` state was captured per-render, so a manual save fired during an
+  // in-flight auto-save could read a stale value, silently no-op, and still
+  // let the caller clear the form.
+  const savingRef = useRef(false)
+
+  // Local draft key so nothing typed is ever lost to a failed save, an expired
+  // session, or a closed tab.
+  const draftKey = user?.id ? `sermonNoteDraft_${user.id}` : null
+
+  const hasContent = (data: typeof formData) =>
+    Boolean(
+      data.churchName || data.sermonTitle || data.speakerName ||
+      data.biblePassage || data.notes
+    )
   // Load existing note for today on mount (only if not creating a new note)
   useEffect(() => {
     if (editingNoteId) {
@@ -54,6 +72,34 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
       })
     }
   }, [token, editingNoteId, isNewNote])
+
+  // Restore an unsaved local draft, but never over content that is already
+  // loaded — the updater form lets this read the freshest state, and a note
+  // fetched from the server stays authoritative.
+  useEffect(() => {
+    if (!draftKey || draftRestored) return
+    setDraftRestored(true)
+    try {
+      const raw = localStorage.getItem(draftKey)
+      if (!raw) return
+      const draft = JSON.parse(raw)
+      if (!hasContent(draft)) return
+      setFormData(prev => (hasContent(prev) ? prev : { ...prev, ...draft }))
+    } catch (error) {
+      console.error('Sermon Notes: Failed to restore draft', error)
+    }
+  }, [draftKey, draftRestored])
+
+  // Mirror in-progress typing to localStorage so a failed save, an expired
+  // session, or a closed tab can't take the notes with it.
+  useEffect(() => {
+    if (!draftKey || !hasContent(formData)) return
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(formData))
+    } catch (error) {
+      console.error('Sermon Notes: Failed to persist draft', error)
+    }
+  }, [draftKey, formData])
 
   const loadExistingNote = async () => {
     if (!token) return
@@ -130,11 +176,12 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
     }
     
     // Prevent multiple simultaneous saves
-    if (isSaving) {
+    if (savingRef.current) {
       console.log('Sermon Notes: Already saving, skipping auto-save')
       return
     }
-    
+
+    savingRef.current = true
     try {
       console.log('Sermon Notes: Auto-saving to API:', noteData)
       console.log('Sermon Notes: Current note ID:', currentNoteId)
@@ -159,20 +206,32 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Sermon Notes: Response error:', response.status, errorText)
-        throw new Error(`HTTP error! status: ${response.status}`)
+
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(
+            'Your session expired, so this note was not saved. Your text is kept ' +
+            'here — sign in again in another tab, then press Save Entry.'
+          )
+        }
+
+        throw new Error(
+          `Save failed (server returned ${response.status}). Your text is still ` +
+          `here — press Save Entry to try again.`
+        )
       }
-      
+
       const data = await response.json()
       console.log('Sermon Notes: Auto-save successful:', data)
-      
+
       // Store the note ID for future updates
       if (data.note && data.note.id && !currentNoteId) {
         console.log('Sermon Notes: Setting current note ID to:', data.note.id)
         setCurrentNoteId(data.note.id)
       }
-      
-    } catch (error) {
-      console.error('Sermon Notes: Auto-save error:', error)
+
+      setSaveError(null)
+    } finally {
+      savingRef.current = false
     }
   }
 
@@ -183,12 +242,17 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
       console.log('Sermon Notes: Auto-save triggered, formData:', formData)
       if (formData.churchName || formData.sermonTitle || formData.speakerName || formData.biblePassage || formData.notes) {
         console.log('Sermon Notes: Content detected, proceeding with auto-save')
-        if (!isSaving) {
+        if (!savingRef.current) {
           setIsSaving(true)
           try {
             await autoSaveToAPI(formData)
           } catch (error) {
+            // Surface it. A silent auto-save failure is what let notes look
+            // saved when they weren't.
             console.error('Sermon Notes: Auto-save error:', error)
+            setSaveError(
+              error instanceof Error ? error.message : 'Auto-save failed'
+            )
           } finally {
             setIsSaving(false)
           }
@@ -253,11 +317,17 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
     if (!user?.id || !token) return
     
     setIsSaving(true)
+    setSaveError(null)
     try {
-      // Final save
+      // Final save. This throws if the write did not land, which is what keeps
+      // the reset below from running on a failure.
       await autoSaveToAPI(formData)
-      
-      // Reset form for new entry
+
+      // Only now is the note definitely persisted, so it is safe to clear the
+      // form and drop the local draft.
+      if (draftKey) {
+        localStorage.removeItem(draftKey)
+      }
       setFormData({
         date: new Date().toISOString().split('T')[0],
         churchName: '',
@@ -267,14 +337,20 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
         notes: ''
       })
       setCurrentNoteId(null)
-      
+
       // Trigger refresh of the list
       if (onSuccess) {
         onSuccess()
       }
-      
+
     } catch (error) {
+      // Keep every field exactly as typed and tell the user what happened.
       console.error('Failed to save sermon note:', error)
+      setSaveError(
+        error instanceof Error
+          ? error.message
+          : 'Save failed. Your text is still here — press Save Entry to try again.'
+      )
     } finally {
       setIsSaving(false)
     }
@@ -384,6 +460,20 @@ export const SermonNoteForm: React.FC<SermonNoteFormProps> = ({
             rows={12}
           />
         </div>
+
+        {/* Save failure notice — nothing is discarded when this is showing */}
+        {saveError && (
+          <div
+            role="alert"
+            className="flex items-start gap-3 rounded-lg border-2 border-amber-500/60 bg-amber-500/10 px-4 py-3"
+          >
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="text-sm text-amber-100">
+              <p className="font-semibold mb-0.5">Not saved yet</p>
+              <p className="text-amber-200/90">{saveError}</p>
+            </div>
+          </div>
+        )}
 
         {/* Save Entry Button */}
         <div className="flex justify-center pt-4">
