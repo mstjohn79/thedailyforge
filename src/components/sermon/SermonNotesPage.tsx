@@ -10,12 +10,29 @@ export const SermonNotesPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'form' | 'list'>('form')
   const [refreshKey, setRefreshKey] = useState(0)
   const [editingNote, setEditingNote] = useState<SermonNote | null>(null)
+  // Bumped every time a blank form is requested. Without it, "New Note" pressed
+  // while already on the form tab set no state at all, so React reused the same
+  // mounted form and the previous note stayed on screen.
+  const [newNoteKey, setNewNoteKey] = useState(0)
+  // Asking for a new note explicitly means starting over, so any recovered
+  // draft is discarded rather than restored. Arriving at the form any other way
+  // (page load, tab navigation) still recovers unsaved text.
+  const [discardDraft, setDiscardDraft] = useState(false)
+
+  const startNewNote = () => {
+    setEditingNote(null)
+    setActiveTab('form')
+    setNewNoteKey(prev => prev + 1)
+    setDiscardDraft(true)
+  }
 
   const handleNoteSaved = () => {
     // Switch to list view and refresh
     setActiveTab('list')
     setRefreshKey(prev => prev + 1)
     setEditingNote(null) // Clear editing note
+    setNewNoteKey(prev => prev + 1) // Next visit to the form starts blank
+    setDiscardDraft(false)
     
     // Also call the global refresh function
     if ((window as any).refreshSermonNotes) {
@@ -26,6 +43,7 @@ export const SermonNotesPage: React.FC = () => {
   const handleEditNote = (note: SermonNote) => {
     setEditingNote(note)
     setActiveTab('form')
+    setDiscardDraft(false)
   }
 
   return (
@@ -43,14 +61,12 @@ export const SermonNotesPage: React.FC = () => {
 
       {/* Tab Navigation */}
       <div className="flex flex-col sm:flex-row justify-center gap-4 mb-8">
-               <button
-                 onClick={(e) => {
-                   e.preventDefault()
-                   e.stopPropagation()
-                   console.log('FORM BUTTON CLICKED!', activeTab)
-                   setEditingNote(null) // Clear any editing note to ensure new note
-                   setActiveTab('form')
-                 }}
+        <button
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            startNewNote()
+          }}
           className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer ${
             activeTab === 'form' 
               ? 'bg-amber-500 text-white hover:bg-amber-600' 
@@ -65,7 +81,6 @@ export const SermonNotesPage: React.FC = () => {
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
-            console.log('LIST BUTTON CLICKED!', activeTab)
             setActiveTab('list')
           }}
           className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors cursor-pointer ${
@@ -89,9 +104,10 @@ export const SermonNotesPage: React.FC = () => {
       >
         {activeTab === 'form' ? (
           <SermonNoteForm 
-            key={editingNote ? `edit-${editingNote.id}` : 'new-note'}
+            key={editingNote ? `edit-${editingNote.id}` : `new-note-${newNoteKey}`}
             onSuccess={handleNoteSaved} 
             isNewNote={!editingNote}
+            discardDraft={discardDraft}
             editingNoteId={editingNote?.id}
             initialData={editingNote ? {
               date: editingNote.date.split('T')[0], // Convert to YYYY-MM-DD format

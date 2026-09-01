@@ -135,7 +135,15 @@ export const SermonNotesList: React.FC<SermonNotesListProps> = ({ onEditNote }) 
 
   const handleDeleteNote = async (noteId: string) => {
     if (!token) return
-    
+
+    // Deleting is permanent and was firing on a single click with no prompt,
+    // which is the one way this screen could lose a saved note.
+    const note = notes.find(n => n.id === noteId)
+    const label = note?.sermonTitle || note?.churchName || 'this sermon note'
+    if (!window.confirm(`Delete "${label}"? This cannot be undone.`)) {
+      return
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/sermon-notes/${noteId}`, {
         method: 'DELETE',
@@ -146,9 +154,15 @@ export const SermonNotesList: React.FC<SermonNotesListProps> = ({ onEditNote }) 
       
       if (response.ok) {
         setNotes(prev => prev.filter(note => note.id !== noteId))
+      } else {
+        // Removing it from the list on a failed delete would make a note that
+        // still exists look gone until the next refresh.
+        console.error('Failed to delete note, status:', response.status)
+        window.alert('That note could not be deleted. It is still here — please try again.')
       }
     } catch (error) {
       console.error('Failed to delete note:', error)
+      window.alert('That note could not be deleted. It is still here — please try again.')
     }
   }
 
